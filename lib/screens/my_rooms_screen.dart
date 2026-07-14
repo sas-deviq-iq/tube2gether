@@ -12,42 +12,9 @@ class _MyRoomsScreenState extends State<MyRoomsScreen> {
   int activeTab = 0;
   final List<String> tabs = ['Created', 'Joined', 'Invites'];
 
-  final List<Map<String, dynamic>> myCreatedRooms = [
-    {
-      'id': 'r1',
-      'title': 'Marvel Movie Night 🍿',
-      'image': 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&q=80',
-      'viewers': 5,
-      'max': 10,
-      'isLive': true,
-      'isPrivate': true,
-      'createdAt': '2 mins ago',
-    },
-  ];
-
-  final List<Map<String, dynamic>> myJoinedRooms = [
-    {
-      'id': 'r2',
-      'title': 'Chill Lofi Beats & Study',
-      'host': 'alex_chill',
-      'image': 'https://images.unsplash.com/photo-1516280440502-6c1724017772?w=800&q=80',
-      'viewers': 124,
-      'max': 500,
-      'isLive': true,
-      'joinedAt': 'Yesterday',
-    }
-  ];
-
-  final List<Map<String, dynamic>> myInvites = [
-    {
-      'id': 'r3',
-      'title': 'Secret Anime Watchparty',
-      'host': 'otaku_king',
-      'image': 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&q=80',
-      'isPrivate': true,
-      'invitedAt': '10 mins ago',
-    }
-  ];
+  final List<Map<String, dynamic>> myCreatedRooms = [];
+  final List<Map<String, dynamic>> myJoinedRooms = [];
+  final List<Map<String, dynamic>> myInvites = [];
 
   @override
   Widget build(BuildContext context) {
@@ -156,6 +123,9 @@ class _MyRoomsScreenState extends State<MyRoomsScreen> {
   }
 
   List<Widget> _buildCreatedRooms() {
+    if (myCreatedRooms.isEmpty) {
+      return [_buildEmptyState('You haven\'t created any rooms yet.')];
+    }
     return myCreatedRooms.map((room) {
       return Container(
         margin: const EdgeInsets.only(top: 12),
@@ -264,6 +234,9 @@ class _MyRoomsScreenState extends State<MyRoomsScreen> {
   }
 
   List<Widget> _buildJoinedRooms() {
+    if (myJoinedRooms.isEmpty) {
+      return [_buildEmptyState('You haven\'t joined any rooms yet.')];
+    }
     return myJoinedRooms.map((room) {
       return Container(
         margin: const EdgeInsets.only(top: 12),
@@ -365,13 +338,16 @@ class _MyRoomsScreenState extends State<MyRoomsScreen> {
   }
 
   List<Widget> _buildInvites() {
+    if (myInvites.isEmpty) {
+      return [_buildEmptyState('No pending invites.')];
+    }
     return myInvites.map((invite) {
       return Container(
         margin: const EdgeInsets.only(top: 12),
         decoration: BoxDecoration(
           color: const Color(0xFF16161F),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFA259FF).withOpacity(0.18)),
+          border: Border.all(color: const Color(0xFFA259FF).withOpacity(0.1)),
         ),
         child: Column(
           children: [
@@ -472,5 +448,21 @@ class _MyRoomsScreenState extends State<MyRoomsScreen> {
         ),
       );
     }).toList();
+  }
+
+  Widget _buildEmptyState(String message) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 64.0),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.folder_open, size: 64, color: const Color(0xFF7A7A99).withOpacity(0.5)),
+            const SizedBox(height: 16),
+            Text(message, style: const TextStyle(color: Color(0xFF7A7A99), fontSize: 14)),
+          ],
+        ),
+      ),
+    );
   }
 }

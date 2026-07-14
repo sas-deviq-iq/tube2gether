@@ -76,7 +76,7 @@ class _PlatformBrowserScreenState extends State<PlatformBrowserScreen> {
                 // Only catch if the user is actually on a video page (watch?v=)
                 // This prevents catching auto-playing previews on the home screen
                 if (currentUrlStr.contains('watch?v=')) {
-                  _catchStream(url);
+                  _catchStream(currentUrlStr); // Return the actual watch URL, not the raw stream
                 }
               }
               // Detect Twitch/Generic Stream
@@ -110,7 +110,7 @@ class _PlatformBrowserScreenState extends State<PlatformBrowserScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Returning to Create Room...',
+                      'Loading Video...',
                       style: TextStyle(color: Color(0xFF7A7A99), fontSize: 14),
                     ),
                   ],

@@ -1,5 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import '../providers/auth_provider.dart';
+import 'room_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -10,39 +15,30 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _roomCodeController = TextEditingController();
-  List<String> joinedRooms = [];
+  List<dynamic> publicRooms = [];
+  bool isLoading = true;
 
-  final List<Map<String, dynamic>> publicRooms = [
-    {
-      'id': 'r1',
-      'title': 'Chill Lofi Beats & Study',
-      'host': 'alex_chill',
-      'image': 'https://images.unsplash.com/photo-1516280440502-6c1724017772?w=800&q=80',
-      'viewers': 124,
-      'max': 500,
-      'isLive': true,
-      'duration': 'Live 2h'
-    },
-    {
-      'id': 'r2',
-      'title': 'Movie Night: Inception',
-      'host': 'movie_buff',
-      'image': 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&q=80',
-      'viewers': 8,
-      'max': 10,
-      'isLive': false,
-      'duration': 'Starts in 10m'
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchPublicRooms();
+  }
 
-  void toggleJoin(String id) {
-    setState(() {
-      if (joinedRooms.contains(id)) {
-        joinedRooms.remove(id);
-      } else {
-        joinedRooms.add(id);
+  Future<void> _fetchPublicRooms() async {
+    try {
+      final response = await http.get(Uri.parse('http://158.220.120.204:3001/api/rooms/public'));
+      if (response.statusCode == 200) {
+        if (mounted) {
+          setState(() {
+            publicRooms = jsonDecode(response.body);
+            isLoading = false;
+          });
+        }
       }
-    });
+    } catch (e) {
+      debugPrint('Failed to fetch rooms: $e');
+      if (mounted) setState(() => isLoading = false);
+    }
   }
 
   @override
@@ -50,25 +46,30 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B12), 
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 24),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildQuickActions(),
-                    const SizedBox(height: 32),
-                    _buildActivePublicRooms(),
-                    const SizedBox(height: 32),
-                  ],
+        child: RefreshIndicator(
+          onRefresh: _fetchPublicRooms,
+          color: const Color(0xFFA259FF),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildQuickActions(),
+                      const SizedBox(height: 32),
+                      _buildActivePublicRooms(),
+                      const SizedBox(height: 32),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -149,8 +150,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: const Color(0xFFA259FF), width: 2),
-                  image: const DecorationImage(
-                    image: NetworkImage('https://i.pravatar.cc/150?img=11'),
+                  image: DecorationImage(
+                    image: NetworkImage(
+                      context.watch<AuthProvider>().user?.avatarUrl ?? 
+                      'https://i.pravatar.cc/150?img=11'
+                    ),
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -292,6 +296,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildActivePublicRooms() {
+    if (isLoading) {
+      return const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: Color(0xFFA259FF))));
+    }
+    if (publicRooms.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text('No active public rooms right now.\nBe the first to create one!', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF7A7A99))),
+        ),
+      );
+    }
     return Column(
       children: [
         Row(
@@ -316,7 +331,22 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 12),
         Column(
           children: publicRooms.map((room) {
-            bool isJoined = joinedRooms.contains(room['id']);
+            final roomId = room['roomId'];
+            final host = room['host'];
+            final title = 'Room: $roomId'; 
+            final viewers = room['usersCount'] ?? 0;
+            final currentVideo = room['currentVideo'];
+            final isLive = currentVideo != null;
+            
+            String thumbnailUrl = 'https://images.unsplash.com/photo-1516280440502-6c1724017772?w=800&q=80';
+            if (isLive) {
+              final regExp = RegExp(r'.*(?:youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*');
+              final match = regExp.firstMatch(currentVideo);
+              if (match != null && match.group(1)?.length == 11) {
+                thumbnailUrl = 'https://img.youtube.com/vi/${match.group(1)}/maxresdefault.jpg';
+              }
+            }
+
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
@@ -330,7 +360,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     height: 128,
                     decoration: BoxDecoration(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                      image: DecorationImage(image: NetworkImage(room['image']), fit: BoxFit.cover),
+                      image: DecorationImage(image: NetworkImage(thumbnailUrl), fit: BoxFit.cover),
                     ),
                     child: Stack(
                       children: [
@@ -348,16 +378,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: room['isLive'] ? const Color(0xFFFF2D55).withOpacity(0.9) : Colors.black.withOpacity(0.65),
+                              color: isLive ? const Color(0xFFFF2D55).withOpacity(0.9) : Colors.black.withOpacity(0.65),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
                               children: [
-                                if (room['isLive']) ...[
+                                if (isLive) ...[
                                   Container(width: 6, height: 6, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
                                   const SizedBox(width: 4),
                                 ],
-                                Text(room['isLive'] ? 'LIVE' : 'UPCOMING', style: TextStyle(color: room['isLive'] ? Colors.white : const Color(0xFF7A7A99), fontSize: 10, fontWeight: FontWeight.bold)),
+                                Text(isLive ? 'LIVE' : 'UPCOMING', style: TextStyle(color: isLive ? Colors.white : const Color(0xFF7A7A99), fontSize: 10, fontWeight: FontWeight.bold)),
                               ],
                             ),
                           ),
@@ -374,7 +404,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               children: [
                                 const Icon(Icons.people_outline, size: 10, color: Color(0xFFA259FF)),
                                 const SizedBox(width: 4),
-                                Text('${room['viewers']}/${room['max']}', style: const TextStyle(color: Color(0xFFF0F0F8), fontSize: 10, fontWeight: FontWeight.w600)),
+                                Text('$viewers', style: const TextStyle(color: Color(0xFFF0F0F8), fontSize: 10, fontWeight: FontWeight.w600)),
                               ],
                             ),
                           ),
@@ -391,15 +421,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(room['title'], style: const TextStyle(color: Color(0xFFF0F0F8), fontSize: 14, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                              Text(title, style: const TextStyle(color: Color(0xFFF0F0F8), fontSize: 14, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
                               const SizedBox(height: 2),
                               RichText(
                                 text: TextSpan(
                                   style: const TextStyle(color: Color(0xFF7A7A99), fontSize: 12),
                                   children: [
                                     const TextSpan(text: 'by '),
-                                    TextSpan(text: '@${room['host']}', style: const TextStyle(color: Color(0xFFC084FC))),
-                                    TextSpan(text: ' · ${room['duration']}'),
+                                    TextSpan(text: '@${host?['username'] ?? 'Unknown'}', style: const TextStyle(color: Color(0xFFC084FC))),
                                   ],
                                 ),
                               )
@@ -408,16 +437,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(width: 12),
                         GestureDetector(
-                          onTap: () => toggleJoin(room['id']),
+                          onTap: () {
+                            Navigator.push(context, MaterialPageRoute(builder: (context) => RoomScreen(
+                              roomId: roomId,
+                              initialVideoUrl: room['currentVideo'] ?? '',
+                              isPublic: true,
+                            )));
+                          },
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                             decoration: BoxDecoration(
-                              color: isJoined ? const Color(0xFFA259FF).withOpacity(0.15) : null,
-                              gradient: isJoined ? null : const LinearGradient(colors: [Color(0xFFA259FF), Color(0xFF7C3AED)]),
+                              gradient: const LinearGradient(colors: [Color(0xFFA259FF), Color(0xFF7C3AED)]),
                               borderRadius: BorderRadius.circular(12),
-                              border: isJoined ? Border.all(color: const Color(0xFFA259FF).withOpacity(0.3)) : null,
                             ),
-                            child: Text(isJoined ? 'Watching ▶' : 'Join Room', style: TextStyle(color: isJoined ? const Color(0xFFC084FC) : Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                            child: const Text('Join Room', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
                           ),
                         )
                       ],

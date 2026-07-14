@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'platform_browser_screen.dart';
+import 'room_screen.dart';
 
 class CreateRoomScreen extends StatefulWidget {
   const CreateRoomScreen({super.key});
@@ -30,17 +31,27 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
     if (_roomNameController.text.trim().isEmpty) return;
     setState(() => creating = true);
     
-    Future.delayed(const Duration(milliseconds: 1600), () {
+    Future.delayed(const Duration(milliseconds: 1000), () {
       if (mounted) {
         setState(() {
           creating = false;
           created = true;
         });
-        Future.delayed(const Duration(milliseconds: 800), () {
+        Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) {
-            // Navigate to room
-            // Navigator.pushNamed(context, '/room');
-            Navigator.pop(context); // Temporarily pop back to home
+            final roomId = _roomNameController.text.trim();
+            final videoUrl = _videoUrlController.text.trim();
+            
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => RoomScreen(
+                  roomId: roomId,
+                  initialVideoUrl: videoUrl.isNotEmpty ? videoUrl : 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                  isPublic: isPublic,
+                ),
+              ),
+            );
           }
         });
       }

@@ -78,6 +78,7 @@ app.post('/api/auth/guest', async (req, res) => {
 // Volatile room state for fast real-time sync
 // memoryRooms[roomId] = { currentVideo: string, state: 'playing'|'paused', time: 0, hostId: string, users: Set }
 const memoryRooms = {};
+const roomTimeouts = {};
 
 // API: Get Public Rooms
 app.get('/api/rooms/public', async (req, res) => {
@@ -158,6 +159,13 @@ io.on('connection', (socket) => {
       }
     }
     
+    // Clear any existing timeout for this room if the host rejoins
+    if (memoryRooms[roomId].hostId === socket.user._id.toString() && roomTimeouts[roomId]) {
+      clearTimeout(roomTimeouts[roomId]);
+      delete roomTimeouts[roomId];
+      console.log(`Host returned to ${roomId}, timeout cancelled.`);
+    }
+
     memoryRooms[roomId].users.add(socket.id);
     const isHost = memoryRooms[roomId].hostId === socket.user._id.toString();
 
@@ -232,27 +240,30 @@ io.on('connection', (socket) => {
         room.users.delete(socket.id);
         socket.to(roomId).emit('user_left', { id: socket.id, username: socket.user.username });
 
-        if (room.users.size === 0) {
-          delete memoryRooms[roomId];
-          try {
-            await Room.updateOne({ roomId }, { isPublic: false });
-            io.emit('public_rooms_updated');
-          } catch (e) {
-            console.error(e);
+        if (room.users.size === 0 && room.hostId !== socket.user._id.toString()) {
+          // If the last guest leaves and the host is not there, it still relies on the host's timeout. 
+          // If the host leaves and they are the last one, it hits the hostId block below.
+        } 
+        
+        if (room.hostId === socket.user._id.toString()) {
+          console.log(`Host left room ${roomId}. Starting 1-hour expiration timer.`);
+          // Do not transfer host. Start 1-hour expiration timer.
+          if (!roomTimeouts[roomId]) {
+            roomTimeouts[roomId] = setTimeout(async () => {
+              console.log(`Room ${roomId} expired after 1 hour.`);
+              delete memoryRooms[roomId];
+              delete roomTimeouts[roomId];
+              io.to(roomId).emit('room_closed', { reason: 'Host has been gone for 1 hour.' });
+              try {
+                await Room.updateOne({ roomId }, { isPublic: false });
+                io.emit('public_rooms_updated');
+              } catch (e) {
+                console.error(e);
+              }
+            }, 3600000); // 1 hour = 3600000 ms
           }
-        } else if (room.hostId === socket.user._id.toString()) {
-          // Pass host to another active user
-          const nextSocketId = Array.from(room.users)[0];
-          const nextSocket = io.sockets.sockets.get(nextSocketId);
-          if (nextSocket && nextSocket.user) {
-            room.hostId = nextSocket.user._id.toString();
-            try {
-              await Room.updateOne({ roomId }, { hostId: nextSocket.user._id });
-            } catch (e) {
-              console.error(e);
-            }
-            io.to(nextSocketId).emit('host_transferred');
-          }
+        } else if (room.users.size === 0 && roomTimeouts[roomId]) {
+            // Optional: If everyone is gone, we still wait for the host's 1-hour timeout.
         }
       }
     }

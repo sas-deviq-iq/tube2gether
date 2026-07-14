@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -128,7 +130,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: const Color(0xFFFF2D55).withOpacity(0.18)),
                       ),
-                      child: _buildSettingsRow(icon: Icons.logout, label: 'Sign Out', iconColor: const Color(0xFFFF2D55), iconBg: const Color(0xFFFF2D55).withOpacity(0.12), isDanger: true),
+                      child: _buildSettingsRow(
+                        icon: Icons.logout, 
+                        label: 'Sign Out', 
+                        iconColor: const Color(0xFFFF2D55), 
+                        iconBg: const Color(0xFFFF2D55).withOpacity(0.12), 
+                        isDanger: true,
+                        onTap: () => context.read<AuthProvider>().logout(),
+                      ),
                     ),
                     const SizedBox(height: 32),
                   ],
@@ -153,6 +162,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildProfileCard() {
+    final user = context.watch<AuthProvider>().user;
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -170,18 +181,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: const Color(0xFFA259FF), width: 2),
-              image: const DecorationImage(image: NetworkImage('https://i.pravatar.cc/150?img=11'), fit: BoxFit.cover),
+              image: DecorationImage(
+                image: NetworkImage(user?.avatarUrl ?? 'https://i.pravatar.cc/150?img=11'), 
+                fit: BoxFit.cover,
+              ),
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Alex Rivera', style: TextStyle(color: Color(0xFFF0F0F8), fontSize: 16, fontWeight: FontWeight.bold)),
-                Text('@alex_chill', style: TextStyle(color: Color(0xFFC084FC), fontSize: 14)),
-                SizedBox(height: 2),
-                Text('alex@example.com', style: TextStyle(color: Color(0xFF7A7A99), fontSize: 12)),
+                Text(user?.username ?? 'Guest', style: const TextStyle(color: Color(0xFFF0F0F8), fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 2),
+                const Text('Connected Account', style: TextStyle(color: Color(0xFF7A7A99), fontSize: 12)),
               ],
             ),
           ),

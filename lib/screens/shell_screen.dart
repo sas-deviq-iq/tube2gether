@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'my_rooms_screen.dart';
 import 'settings_screen.dart';
+import '../services/update_service.dart';
 
 class ShellScreen extends StatefulWidget {
   const ShellScreen({super.key});
@@ -18,6 +19,14 @@ class _ShellScreenState extends State<ShellScreen> {
     const MyRoomsScreen(),
     const SettingsScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      UpdateService.checkForUpdates(context);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
