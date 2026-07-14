@@ -24,12 +24,10 @@ mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err));
 
-// API: Google Auth
+// API: Google Auth (Kept for future use if needed)
 app.post('/api/auth/google', async (req, res) => {
   const { idToken } = req.body;
-  if (!idToken) {
-    return res.status(400).json({ error: 'idToken is required' });
-  }
+  if (!idToken) return res.status(400).json({ error: 'idToken is required' });
 
   try {
     const ticket = await googleClient.verifyIdToken({
@@ -40,15 +38,40 @@ app.post('/api/auth/google', async (req, res) => {
     const { sub: googleId, email, name: username, picture: avatarUrl } = payload;
 
     let user = await User.findOne({ googleId });
-    if (!user) {
-      user = await User.create({ googleId, email, username, avatarUrl });
-    }
+    if (!user) user = await User.create({ googleId, email, username, avatarUrl });
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, user });
   } catch (error) {
-    console.error('Google Auth Error:', error);
     res.status(401).json({ error: 'Invalid Google Token' });
+  }
+});
+
+// API: Guest Auth (Custom Username Login)
+app.post('/api/auth/guest', async (req, res) => {
+  const { username } = req.body;
+  if (!username || username.trim() === '') {
+    return res.status(400).json({ error: 'Username is required' });
+  }
+
+  try {
+    const trimmedUsername = username.trim();
+    // Generate a random Google-like ID for guests
+    const guestGoogleId = `guest_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const avatarUrl = `https://api.dicebear.com/7.x/avataaars/png?seed=${encodeURIComponent(trimmedUsername)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffdfbf,ffd5dc`;
+    
+    const user = await User.create({ 
+      googleId: guestGoogleId, 
+      email: `${guestGoogleId}@guest.tube2gether.local`, 
+      username: trimmedUsername, 
+      avatarUrl 
+    });
+
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '365d' }); // 1 year token for guests
+    res.json({ token, user });
+  } catch (error) {
+    console.error('Guest Auth Error:', error);
+    res.status(500).json({ error: 'Server error creating guest account' });
   }
 });
 
